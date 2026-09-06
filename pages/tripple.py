@@ -2,6 +2,7 @@ from cmath import sqrt
 import math
 import streamlit as st
 import numpy as np
+import plotly.express as px
 import plotly.graph_objs as go
 
 #class Interpol:
@@ -120,12 +121,12 @@ col1, col2, col3 = st.columns([1,1,2])
 
 with col1:
     User_bar_size = st.selectbox("What type of steel are you using? (mm^2)", (10,12,16,20,24,32,26) )
-    User_no_bars = st.slider("How many bars of Steel?", min_value =0, max_value =10, step=1 )
+    User_no_bars = st.slider("How many bars of Steel?", min_value =1, max_value =10, step=1 )
     # use input first, then prompt for the integer using int
     User_fc = st.selectbox("What is the grade of Concrete? (MPa)", (20, 25, 32, 40, 50 ))
-    User_Width = st.slider("What is the width of Concrete? (mm)", min_value=0, max_value=2000, step = 5)
-    User_Depth = st.slider("What is the depth of Concrete? (mm)", min_value=0, max_value=2000, step = 5)
-    User_cover = st.slider("What is the cover of Concrete? (mm)", min_value= 0 , max_value= 100, step=5)
+    User_Width = st.slider("What is the width of Concrete? (mm)", min_value=1, max_value=2000, step = 5)
+    User_Depth = st.slider("What is the depth of Concrete? (mm)", min_value=1, max_value=2000, step = 5)
+    User_cover = st.slider("What is the cover of Concrete? (mm)", min_value= 1 , max_value= 100, step=5)
 
 #print(T_Steel(User_bar_size, User_no_bars, 500)) #this needs the steel inputs which are AST & Fsy
 # neutral axis calc
@@ -315,8 +316,3 @@ moment_plot.add_trace(go.Scatter(
 
     ))
 st.plotly_chart(moment_plot)
-
-
-
-
-
