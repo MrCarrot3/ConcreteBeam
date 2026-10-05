@@ -200,8 +200,7 @@ with (col3):
     lx3 = int(st.number_input("Select the x coordinate  for span 3", min_value=1, max_value=len3, step=1 ))
 
 with (col4):
-    st.header("Concrete beam section",
-              fontsize = "16")
+    st.header("Concrete beam section")
     area = 3.145 * User_bar_size * User_bar_size / 4
     effective_width = User_Width - User_cover
 
