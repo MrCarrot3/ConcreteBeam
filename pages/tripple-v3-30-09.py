@@ -68,7 +68,7 @@ def moment_dist(l1, l2 , l3, w1, w2, w3, kn1, lx1, kn2, lx2,kn3, lx3):
     r6 = np.array([0,       0,                  r5[3]/2,                    0,                              0,                              0])
     r7 = np.array([0,       -r6[2]*df_a1,       -r6[2]*df_a2,               -(r6[2]*df_a2)/2,                0,                             0])
     r8 = np.array([0,       0,                  0,                          -r7[3]*df_b1,                   -r7[3]*df_b2,                   0])
-    r9 = np.array([0,       (r1[1]+r3[1]+r7[1]),  (r1[2]+r3[2]+r6[2]+r7[2]), (r1[3]+r3[3]+r5[3]+r7[3]+r8[3]), (r1[4]+r3[4]+r5[4]+r8[4]),      0])
+    r9 = np.array([0,       (r1[1]+r3[1]+r7[1]),  (r1[2]+r3[2]+r6[2]+r7[2]), (r1[3]+r3[3]+r5[3]+r7[3]+r8[3]), (r1[4]+r3[4]+r5[4]+r8[4]),    0])
     return r9
 def Alpha2 (fc):
     Alpha2_def = 0.85-0.0015*fc
@@ -109,7 +109,7 @@ def spans_x(start, l, lx, n = 100 ):
     #this is where concatinate comes in, it will add the locaiton of point load
     #lx
     return local
-def spans_y(start, l, lx, n = 100 ):
+def spans_y(start, l, lx, n = 99 ):
     local = np.unique(
             np.concatenate(
                 [np.linspace(start, l, n+1),[lx+start]]
@@ -130,7 +130,7 @@ def double_mom(b, d, cover_t, cover_, bars_t, size_t, bars_c, size_c, alpha, y_c
     print(f"Tensile strength {ts} kN")
 
     # compressive steel
-    asc = 3.145 * (size_c / 2) * (size_c / 2) * bars_c
+    asc = 3.145 * (size_c / 2) * (size_c / 2) * bars_c #<--- area steel compressive
     print(f"Area of compressive steel {asc} mm2")
 
     a = y_conc*(fc/1000)*alpha*b
@@ -148,12 +148,15 @@ def double_mom(b, d, cover_t, cover_, bars_t, size_t, bars_c, size_c, alpha, y_c
     esc = 0.003*(dn-cover_t)/dn
     #print(f"cover bottom is{cover_b} mm")
     ts1 = esc*(200*1000)*(asc/1000)
+    print(f"Compressive steel strennght is {ts1}kN")
     #print(f"strength of compressive steel in {ts1} kN")
     ts2 = a*dn
     print(f"Concrete Compressive strennght is {ts2}kN")
 
     mu = (ts1*(d-cover_t) + ts2*(d - y_conc*dn/2))/1000
     return mu
+
+
 def mom_cap(b, d, cover_b, bars_t, size_t, fc ):
     t = (size_t/2)*(size_t/2)*3.145*bars_t*500/1000
     print(t)
@@ -166,10 +169,22 @@ def mom_cap(b, d, cover_b, bars_t, size_t, fc ):
     return mom
 
 
+def shear_LHS_point (mom_b, p, udl, max_neg, len, a, x ):
+    vb = -1*(mom_b + udl*len*len/2 + p*a)/len
+    va = vb+udl*len
+    b = len - a
+    m = udl/len
+    if x<=a:
+        y = va -m*(len-x)+udl*len/2
+    else:
+        y = vb-m*(len-x)+udl*len/2
+    return y
+
+
 # formatting the page
 st.set_page_config(layout="wide")
 
-col1, col2, col3, col4 = st.columns([1,1,1,2])
+col1, col2, col3, col4 = st.columns([1,1.2,2.1,1])
 
 with col1:
     st.header("Input Concrete section elements")
@@ -180,24 +195,59 @@ with col1:
     User_Width = st.slider("What is the width of Concrete? (mm)", min_value=0, max_value=1000, step = 10)
     User_Depth = st.slider("What is the depth of Concrete? (mm)", min_value=0, max_value=1000, step = 10)
     User_cover = st.slider("What is the cover of Concrete? (mm)", min_value= 0 , max_value= 100, step=5)
+    beam_load = 0
 
 with col2:
+
     st.header("Input Span lengths & UDLs")
-    len1 = int(st.number_input("length of 1st span"))
-    len2 = int(st.number_input("length of 2nd Span",  step=1 ))
-    len3 = int(st.number_input("length of 3rd Span",  step=1 ))
-    udl1 = int(st.number_input("Select the Uniformly distributed load for span 1 ", min_value=0, step=1 ))
-    udl2 = int(st.number_input("Select the Uniformly distributed load for span 2", min_value=0, step=1 ))
-    udl3 = int(st.number_input("Select the Uniformly distributed load for span 3", min_value=0, step=1 ))
+    st.write(f"Dead load of beam :red[{beam_load :.3g}] kN/m")
+    len1 = float(st.number_input("length of 1st span"))
+    len2 = float(st.number_input("length of 2nd Span"))
+    len3 = float(st.number_input("length of 3rd Span"))
+    mcol1, mcol2 = st.columns(2)
+    with mcol1:
+        gudl1 = float(st.number_input("UDL dead load for span 1 ", min_value=beam_load))
+        gudl2 = float(st.number_input("UDL dead load for span 2", min_value=beam_load))
+        gudl3 = float(st.number_input("UDL dead load for span 3", min_value=beam_load))
+    with mcol2:
+        qudl1 = float(st.number_input("UDL live load for span 1 ", min_value=beam_load))
+        qudl2 = float(st.number_input("UDL live load for span 2", min_value=beam_load))
+        qudl3 = float(st.number_input("UDL live load for span 3", min_value=beam_load))
 
 with (col3):
     st.header("Input Point loads & locations")
-    kn1= int(st.number_input("Select the point load for span 1", min_value=0, max_value=100, step=10 ))
-    lx1 = int(st.number_input("Select the x coordinate  for span 1", min_value=1, max_value=len1, step=1 ))
-    kn2= int(st.number_input("Select the point load for span 2", min_value=0, max_value=100, step=10 ))
-    lx2 = int(st.number_input("Select the x coordinate  for span 2", min_value=1, max_value=len2, step=1 ))
-    kn3= int(st.number_input("Select the point load for span 3", min_value=0, max_value=100, step=10 ))
-    lx3 = int(st.number_input("Select the x coordinate  for span 3", min_value=1, max_value=len3, step=1 ))
+    pcol1, pcol2, pcol3 = st.columns(3)
+    with pcol1:
+        g1= float(st.number_input("Dead point load span 1", min_value=0))
+        g2 = float(st.number_input("Dead point load span 2", min_value=0))
+        g3 = float(st.number_input("Dead point load span 3", min_value=0))
+    with pcol2:
+        q1 = float(st.number_input("Live point load for span 1", min_value=0))
+        q2 = float(st.number_input("Live point load for span 2", min_value=0))
+        q3 = float(st.number_input("Live point load for span 3", min_value=0))
+    with pcol3:
+        lx1 = float(st.number_input("Point load of span 1", min_value=1))
+        lx2 = float(st.number_input("Point load of span 2", min_value=1))
+        lx3 = float(st.number_input("Point load of span 3", min_value=1))
+    factored = st.checkbox("1.2G + 1.5Q Factored Moment?")
+    reduction = st.checkbox("Apply (0.85) Moment Capacity Reduction? ")
+
+
+    if factored == True:
+        kn1 = 1.2*g1 + 1.5*q1
+        kn2 = 1.2*g2 + 1.5*q2
+        kn3 = 1.2 * g3 + 1.5 * q3
+        udl1 = 1.2*gudl1 + 1.5*qudl1
+        udl2 = 1.2*gudl2 + 1.5*qudl2
+        udl3 = 1.2*gudl3 + 1.5*qudl3
+
+    else:
+        kn1 =g1 +q1
+        kn2 =g2 +q2
+        kn3 =g3 +q3
+        udl1 = gudl1 + qudl1
+        udl2 = gudl2 + qudl2
+        udl3 = gudl3 + qudl3
 
 with (col4):
     st.header("Concrete beam section")
@@ -228,6 +278,11 @@ with (col4):
     beam_display.update_xaxes(range=[0, 1000])
     beam_display.update_yaxes(range=[0, 2000])
 
+    beam_display.update_yaxes(
+        scaleanchor="x",
+        scaleratio=1
+    )
+
     st.plotly_chart(beam_display)
 
 #######Main MOMENT DIST######
@@ -256,8 +311,8 @@ mom_x = np.unique((np.concatenate([x1,x2,x3])))
 # THE X VALUES FOR INDIVIDUAL SPAN CALCS HAVE TO MATCH THE X VALUES FOR THE TOTAL X SPAN
 # E.G.      x PLOT          0 - 1 - 2 -3 -4 -5 -6 - 7 -8 -9 -10
 #      X PLOT FOR Y CALC    0 - 1 - 2 -3 -0 -1 -2  -3 -4 -0 -1
-len1_mom = spans_y(0, len1, lx1) #x for span1 values for moment calc
-len2_mom = spans_y(0, len2, lx2) #x for span2 values for moment calc
+len1_mom = spans_x(0, len1, lx1) #x for span1 values for moment calc
+len2_mom = spans_x(0, len2, lx2) #x for span2 values for moment calc
 len3_mom = spans_x(0, len3, lx3) #x for span3 values for moment calc
                                         # its weird, but for the last span
                                         # instead of using span_y, use
@@ -310,8 +365,8 @@ for j in range(len(len3_mom)):
     mom_udl_len3.append(float(mom3_udl))
     j = j+1
 #st.write(mom_udl_len3) <---- FOR DEBUGGING
-#st.write(f"Number of elements in the y array is {len(len1_mom), len(len2_mom), len(len3_mom)}"
-         #f" Number of elements in the x arrary is {len(x1), len(x2), len(x3)}") <---- FOR DEBUGGING
+st.write(f"Number of elements in the y array is {len(len1_mom), len(len2_mom), len(len3_mom)}"
+         f" Number of elements in the x array is {len(x1), len(x2), len(x3)}") #<---- FOR DEBUGGING
 
 mom_y_udl = np.concatenate([mom_udl_len1, mom_udl_len2[1:], mom_udl_len3[1:]])
 
@@ -322,8 +377,11 @@ moment_plot = go.Figure()
 
 #####Double moment adding####
 no_sections= int(st.number_input("How many sections do you want?", step= 1))
-moment_cap_x=[]
-moment_cap_y=[]
+
+moment_cap_x = []
+moment_cap_y = []
+
+
 for i in range(0,no_sections):
     col1, col2 = st.columns(2)
     with col1:
@@ -370,8 +428,9 @@ for i in range(0,no_sections):
                                             (10, 12, 16, 20, 24, 32, 26), key=f"in4{i}"),
                                 st.number_input("Number of Top bars", key=f"in5{i}", step=1),
                                 st.selectbox("Size of top bars(mm^2)",
-                                            (10, 12, 16, 20, 24, 32, 26), key=f"in6{i}"),                                    0.8083,
-                                0.85,
+                                            (10, 12, 16, 20, 24, 32, 26), key=f"in6{i}"),
+                                      0.85,
+                                0.83,
                                 User_fc )
             else:
                 moment = - mom_cap(User_Width,
@@ -385,7 +444,14 @@ for i in range(0,no_sections):
         moment_cap_y.append(moment)
 
 ##### ADDING IN THE MOMENT CAPACITY GRAPH
+
+if reduction == True:
+    moment_cap_y = 0.85*np.array(moment_cap_y)
+else:
+    moment_cap_y = moment_cap_y
+
 moment_plot.add_trace(go.Scatter(
+
     x =moment_cap_x,
     y =moment_cap_y,
     name = "Moment Capacity (kNm)",)) ####adding the double cross-section moment
@@ -394,12 +460,15 @@ moment_plot.add_trace(go.Scatter(
 #### ADDING IN THE MOMENT FROM THE LOADS
 moment_plot.add_trace(go.Scatter(
     x = mom_x,
-    y = mom_tot))
+    y = mom_tot,
+    name = "Beam Moment(kNm)",))
 
 ### drawing in the locaiton of the supports
 moment_plot.add_trace(go.Scatter(
     x = [0,len1, len1+len2, len1+len2+len3],
     y = [0, 0,0,0],
+    name = "Support Locaiton",
+
 
 ))
 
@@ -408,6 +477,7 @@ moment_plot.update_layout(
 )
 #st.write(mid(max_moment[2],max_moment[3], len2, 5*len2/10)- par_(udl_max(udl1, len2), len2, 5*len2/10))
 ###^^^^ IDK why i wrote this, not sure what I was debugging
+
 st.plotly_chart(moment_plot)
 
 #moment_plot.add_trace(go.Scatter(
