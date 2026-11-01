@@ -148,11 +148,11 @@ def mom_cap(b, d, cover_b, bars_t, size_t, fc ):
 # formatting the page
 st.set_page_config(layout="wide")
 
-col1, col2, col3 = st.columns([1,1,2])
+col1, col2, col3 = st.columns([1,2,1.5])
 
 with col1:
     st.header("Input Concrete section elements")
-    User_bar_size = st.selectbox("What type of steel are you using? (mm^2)", (10,12,16,20,24,32,26) )
+    User_bar_size = st.selectbox("What type of steel are you using? (mm^2)", (10,12,16,20,24,32,36) )
     User_no_bars = st.slider("How many bars of Steel?", min_value =0, max_value =10, step=1 )
     # use input first, then prompt for the integer using int
     User_fc = st.selectbox("What is the grade of Concrete? (MPa)", (20, 25, 32, 40, 50 ))
@@ -172,14 +172,42 @@ strain_steel = conc_strain(dn,User_Depth-dn-User_cover, 0.003)
 #print(round(dn, 2),"mm is the depth of your Neutral axis")
 with col2:
     st.header("Input Spans & Loads")
-    len1 = st.slider("length of 1st span", min_value=0, max_value=10, step=1 )
-    len2 = st.slider("length of 2nd Span", min_value=0, max_value=10, step=1 )
-    udl1 = st.slider("Select the Uniformly distributed load  for Span 1 ", min_value=0, max_value=20, step=1 )
-    udl2 = st.slider("Select the Uniformly distributed load for Span 2", min_value=0, max_value=20, step=1 )
-    kn1= st.slider("Select the point load for span 1", min_value=0, max_value=100, step=1 )
-    lx1 = st.slider("Select the x coordinate  for span 1", min_value=1, max_value=len1, step=1 )
-    kn2= st.slider("Select the point load for span 2", min_value=0, max_value=100, step=1 )
-    lx2 = st.slider("Select the x coordinate for span 2", min_value=1, max_value=len2, step=1 )
+    len1 = float(st.number_input("length of 1st span", min_value=0, step=1 ))
+    len2 = float(st.number_input("length of 2nd Span", min_value=0, step=1 ))
+    mcol1, mcol2, mcol3, mcol4 = st.columns([0.9,1,1,1.2])
+    with mcol1:
+        gudl1 = float(st.number_input("Dead UDL for Span 1 ", min_value=0, max_value=20, step=1 ))
+        gudl2 = float(st.number_input("Dead UDL for Span 2 ", min_value=0, max_value=20, step=1 ))
+        qudl1 = float(st.number_input("Live UDL for Span 1", min_value=0, max_value=20, step=1 ))
+        qudl2 = float(st.number_input("Live UDL for Span 2", min_value=0, max_value=20, step=1 ))
+    with mcol2:
+        gkn1= float(st.number_input("Dead point load - Span 1 (kN) ", min_value=0, max_value=100, step=1 ))
+        gkn2 = float(st.number_input("Dead point load - Span 2 (kN)", min_value=0, max_value=100, step=1))
+    with mcol3:
+        qkn1= float(st.number_input("Live point load - Span 1 (kN)", min_value=0, max_value=100, step=1 ))
+        qkn2 = float(st.number_input("Live point load - Span 2 (kN)", min_value=0, max_value=100, step=1))
+    with mcol4:
+        lx1 = float(st.number_input("Select the x coordinate  for span 1", min_value = 0.01, max_value=len1))
+        lx2 = float(st.number_input("Select the x coordinate for span 2", min_value = 0.01,max_value=len2))
+    reduction = st.checkbox("Apply  (0.85) Moment Capacity Reduction? ")
+    factored = st.checkbox("1.2G + 1.5Q Factored Moment?")
+
+
+
+if factored == True:
+    udl1 = 1.2*gudl1 + 1.5*qudl1
+    udl2 = 1.2*gudl2 + 1.5*qudl2
+    kn1 = 1.2*gkn1 + 1.5*qkn1
+    kn2 = 1.2*gkn2 + 1.5*qkn2
+
+else:
+    udl1 = gudl1 + qudl1
+    udl2 = gudl2 + qudl2
+    kn1 = gkn1 + qkn1
+    kn2 = gkn2 + qkn2
+
+
+
 
 with (col3):
     area = 3.145*User_bar_size*User_bar_size/4
@@ -204,8 +232,13 @@ with (col3):
         )
     )
     beam_display.update_layout(showlegend=False)
-    beam_display.update_xaxes(range=[0, 2200])
-    beam_display.update_yaxes(range=[0, 2200])
+    beam_display.update_xaxes(range=[0, 1000])
+    beam_display.update_yaxes(range=[0, 2000])
+
+    beam_display.update_yaxes(
+        scaleanchor="x",
+        scaleratio=1
+    )
 
     st.plotly_chart(beam_display)
 #print(round(Moment_Arm(User_Depth,ydn, User_cover), 2),"kNm")
@@ -219,9 +252,6 @@ else:
 
 #THIS IS THE DEFINING MOMENT OF THE  DOCUMENT
 max_moment = moment_dist(len1, len2, udl1, udl2, lx1 , lx2, kn1, kn2)
-len1_max_point = point_max_mom(len1, lx1, kn1)
-len2_max_point = point_max_mom(len2, lx2, kn2)
-
 
 #st.write(max_moment)
 #max_moment_1 = max(max_moment[1], max_moment[2])
@@ -237,7 +267,7 @@ x2 = spans_x(len1, len1+ len2, lx2) #x for span1 + span2 values distributed thro
 
 
 mom_x = np.unique((np.concatenate([x1,x2])))
-len1_mom = spans_y(0, len1, lx1) #x for span1 values for moment calc
+len1_mom = spans_x(0, len1, lx1) #x for span1 values for moment calc
 len2_mom = spans_x(0, len2, lx2) #x for span3 values for moment calc
                                         # its weird, but for the last span
                                         #instead of using span_y, use
@@ -248,6 +278,9 @@ y_spans = (np.concatenate([len1_mom, len2_mom]))
 
 mom_udl_len1 = [] #<---- this is the array that the moment for length 1 goes into
 mom_udl_len2 = [] #<---- this is the array that the moment for length 2 goes into
+
+len1_max_point = point_max_mom(len1, lx1, kn1) #max point load at span 1
+len2_max_point = point_max_mom(len2, lx2, kn2) #max point load at span 2
 
 q = 0
 for q in range(len(len1_mom)):
@@ -357,7 +390,6 @@ st.write(f" The shear forces on the right hand side is  {rhs_shear}")
 
 mom_tot = mom_y_udl
 
-
 moment_plot = go.Figure()
 moment_plot.add_trace(go.Scatter(
     x = mom_x,
@@ -393,10 +425,10 @@ for i in range(0,no_sections):
                                     User_cover,
                                     st.number_input("Number of bottom bars", key=f"in7{i}", step=1),
                                     st.selectbox("Size of bottom bars(mm^2)",
-                                                                (10, 12, 16, 20, 24, 32, 26), key=f"in4{i}"),
+                                                                (10, 12, 16, 20, 24, 32, 36), key=f"in4{i}"),
                                     st.number_input("Number of Top bars", key=f"in5{i}", step=1),
                                     st.selectbox("Size of top bars(mm^2)",
-                                                (10, 12, 16, 20, 24, 32, 26), key=f"in6{i}"),
+                                                (10, 12, 16, 20, 24, 32, 36), key=f"in6{i}"),
                                      0.8083,
                                     0.85,
                                     User_fc)
@@ -406,7 +438,7 @@ for i in range(0,no_sections):
                                    User_cover,
                                    st.number_input("Number of bottom bars", key=f"in10{i}", step=1),
                                    st.selectbox("Size of bottom bars(mm^2)",
-                                                (10, 12, 16, 20, 24, 32, 26), key=f"in11{i}"),
+                                                (10, 12, 16, 20, 24, 32, 36), key=f"in11{i}"),
                                    User_fc)
         else:
             ck = st.checkbox("Compression Steel?", key=f"in9{i}")
@@ -417,10 +449,10 @@ for i in range(0,no_sections):
                                 User_cover,
                                 st.number_input("Number of bottom bars", key=f"in7{i}", step=1),
                                 st.selectbox("Size of bottom bars(mm^2)",
-                                            (10, 12, 16, 20, 24, 32, 26), key=f"in4{i}"),
+                                            (10, 12, 16, 20, 24, 32, 36), key=f"in4{i}"),
                                 st.number_input("Number of Top bars", key=f"in5{i}", step=1),
                                 st.selectbox("Size of top bars(mm^2)",
-                                            (10, 12, 16, 20, 24, 32, 26), key=f"in6{i}"),                                    0.8083,
+                                            (10, 12, 16, 20, 24, 32, 36), key=f"in6{i}"),                                    0.8083,
                                 0.85,
                                 User_fc )
             else:
@@ -429,15 +461,25 @@ for i in range(0,no_sections):
                                 User_cover,
                                 st.number_input("Number of bottom bars", key=f"in10{i}", step=1),
                                  st.selectbox("Size of bottom bars(mm^2)",
-                                              (10, 12, 16, 20, 24, 32, 26), key=f"in11{i}"),                                User_fc)
+                                              (10, 12, 16, 20, 24, 32, 36), key=f"in11{i}"),                                User_fc)
 
         moment_cap_y.append(moment)
         moment_cap_y.append(moment)
+
+if reduction == True:
+    moment_cap_y = 0.85*np.array(moment_cap_y)
+else:
+    moment_cap_y = moment_cap_y
 
 moment_plot.add_trace(go.Scatter(
     x =moment_cap_x,
     y =moment_cap_y, )) ####adding the double cross-section moment
 
+moment_plot.add_trace(go.Scatter(
+    x = [0,len1, len1+len2, len1+len2],
+    y = [0, 0,0,0],
+
+))
 
 moment_plot.add_trace(go.Scatter(
     x = mom_x,
